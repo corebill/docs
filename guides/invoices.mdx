@@ -1,0 +1,97 @@
+---
+title: "Invoices"
+description: "Create, manage, and track invoices through the API."
+---
+
+## Overview
+
+Invoices are the core billing documents in Corebill. They support line items, taxes, discounts, and payment tracking. Invoice numbers are auto-generated using your company's configured prefix.
+
+## Create an Invoice
+
+```bash
+curl -X POST "https://api.corebill.io/v1/invoices?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "cus_abc123",
+    "due_date": "2025-05-15",
+    "tax_rate": 16,
+    "discount_type": "percentage",
+    "discount_value": 10,
+    "payment_terms": "Net 30",
+    "notes": "Thank you for your business",
+    "items": [
+      {
+        "name": "Web Development",
+        "description": "Frontend implementation - React",
+        "quantity": 40,
+        "unit": "hour",
+        "unit_price": 75.00
+      }
+    ]
+  }'
+```
+
+## Invoice Numbers
+
+Numbers are generated automatically: `{PREFIX}-{YEAR}-{COUNTER}`
+
+Example: `INV-2025-000001`
+
+The prefix is configurable per company (default: `INV`).
+
+## Statuses
+
+| Status | Description |
+|--------|-------------|
+| `draft` | Initial state, fully editable |
+| `sent` | Sent to the customer |
+| `viewed` | Customer has viewed the invoice |
+| `in_review` | Under review |
+| `partial` | Partially paid |
+| `paid` | Fully paid |
+| `overdue` | Past due date, unpaid |
+| `cancelled` | Cancelled |
+
+## Calculations
+
+Totals are calculated automatically when creating an invoice with items:
+
+```
+subtotal = SUM(quantity * unit_price)
+discount_amount = subtotal * (discount_value / 100)    // if percentage
+subtotal_after_discount = subtotal - discount_amount
+tax_amount = subtotal_after_discount * (tax_rate / 100)
+total = subtotal_after_discount + tax_amount
+amount_due = total - amount_paid
+```
+
+## Editing Restrictions
+
+- **Draft invoices**: All fields can be updated
+- **Non-draft invoices**: Only `notes`, `payment_terms`, and `status` can be updated
+
+## Deleting Invoices
+
+<Warning>
+  Invoices with status `paid` cannot be deleted. You must cancel them first.
+</Warning>
+
+```bash
+curl -X DELETE "https://api.corebill.io/v1/invoices/inv_abc123?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key"
+```
+
+## Filtering
+
+```bash
+# By status
+curl ".../invoices?company_id=com_abc123&status=overdue"
+
+# By customer
+curl ".../invoices?company_id=com_abc123&customer_id=cus_abc123"
+
+# Combined
+curl ".../invoices?company_id=com_abc123&status=sent&customer_id=cus_abc123&limit=10"
+```

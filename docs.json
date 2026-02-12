@@ -1,68 +1,132 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Corebill",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0084C7",
+    "light": "#0098E5",
+    "dark": "#006DA3"
   },
-  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png",
+    "href": "https://corebill.io"
+  },
+  "favicon": "/logo/dark.png",
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
-              "quickstart",
-              "development"
+              "guides/authentication",
+              "guides/quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "guides/companies",
+              "guides/customers",
+              "guides/invoices",
+              "guides/quotes",
+              "guides/projects"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Advanced",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/pagination",
+              "guides/errors",
+              "guides/webhooks"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
+        "openapi": "openapi.yaml",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Companies",
             "pages": [
-              "api-reference/introduction"
+              "GET /companies"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Customers",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "GET /customers",
+              "POST /customers",
+              "GET /customers/{id}",
+              "PATCH /customers/{id}",
+              "DELETE /customers/{id}"
+            ]
+          },
+          {
+            "group": "Invoices",
+            "pages": [
+              "GET /invoices",
+              "POST /invoices",
+              "GET /invoices/{id}",
+              "PATCH /invoices/{id}",
+              "DELETE /invoices/{id}"
+            ]
+          },
+          {
+            "group": "Quotes",
+            "pages": [
+              "GET /quotes",
+              "POST /quotes",
+              "GET /quotes/{id}",
+              "PATCH /quotes/{id}",
+              "DELETE /quotes/{id}"
+            ]
+          },
+          {
+            "group": "Projects",
+            "pages": [
+              "GET /projects",
+              "POST /projects",
+              "GET /projects/{id}",
+              "PATCH /projects/{id}",
+              "DELETE /projects/{id}"
+            ]
+          },
+          {
+            "group": "Tasks",
+            "pages": [
+              "GET /projects/{id}/tasks",
+              "POST /projects/{id}/tasks",
+              "GET /projects/{id}/tasks/{taskId}",
+              "PATCH /projects/{id}/tasks/{taskId}",
+              "DELETE /projects/{id}/tasks/{taskId}"
+            ]
+          },
+          {
+            "group": "Time Entries",
+            "pages": [
+              "GET /projects/{id}/time-entries",
+              "POST /projects/{id}/time-entries",
+              "GET /projects/{id}/time-entries/summary",
+              "GET /projects/{id}/time-entries/{entryId}",
+              "PATCH /projects/{id}/time-entries/{entryId}",
+              "DELETE /projects/{id}/time-entries/{entryId}"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "groups": [
+          {
+            "group": "SDKs",
+            "pages": [
+              "sdks/overview",
+              "sdks/node"
             ]
           }
         ]
@@ -71,52 +135,50 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Dashboard",
+          "href": "https://app.corebill.io",
+          "icon": "browser"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub",
+          "href": "https://github.com/corebill",
+          "icon": "github"
         }
       ]
     }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@corebill.io"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://app.corebill.io"
+    }
+  },
+  "api": {
+    "playground": {
+      "display": "interactive"
     }
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor"
+    ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/corebill",
+      "github": "https://github.com/corebill",
+      "linkedin": "https://linkedin.com/company/corebill"
     }
   }
 }

@@ -1,0 +1,53 @@
+---
+title: "Pagination"
+description: "How to paginate through large result sets."
+---
+
+## Overview
+
+All list endpoints support pagination via `limit` and `offset` query parameters.
+
+## Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | `50` | Maximum records per page (1-100) |
+| `offset` | integer | `0` | Number of records to skip |
+
+## Response Format
+
+Every list response includes a `pagination` object:
+
+```json
+{
+  "data": {
+    "customers": [...],
+    "pagination": {
+      "total": 142,
+      "limit": 50,
+      "offset": 0
+    }
+  }
+}
+```
+
+## Examples
+
+```bash
+# First page (records 1-50)
+curl ".../customers?company_id=com_abc123&limit=50&offset=0"
+
+# Second page (records 51-100)
+curl ".../customers?company_id=com_abc123&limit=50&offset=50"
+
+# Third page (records 101-142)
+curl ".../customers?company_id=com_abc123&limit=50&offset=100"
+```
+
+## Calculating Pages
+
+```
+total_pages = ceil(total / limit)
+current_page = floor(offset / limit) + 1
+has_more = offset + limit < total
+```

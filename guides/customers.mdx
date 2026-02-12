@@ -1,0 +1,83 @@
+---
+title: "Customers"
+description: "Create and manage your customer database through the API."
+---
+
+## Overview
+
+Customers represent the people or businesses you invoice. Each customer belongs to a specific company and can have multiple invoices, quotes, and projects associated with them.
+
+## Create a Customer
+
+```bash
+curl -X POST "https://api.corebill.io/v1/customers?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Corp",
+    "country": "US",
+    "email": "billing@acme.com",
+    "city": "New York",
+    "currency": "USD",
+    "legal_name": "Acme Corporation Inc.",
+    "legal_vat": "US123456789"
+  }'
+```
+
+Only `name` and `country` are required. A unique `slug` is generated automatically from the name.
+
+## List Customers
+
+```bash
+# List all customers
+curl "https://api.corebill.io/v1/customers?company_id=com_abc123"
+
+# Search by name or email
+curl "https://api.corebill.io/v1/customers?company_id=com_abc123&search=acme"
+
+# Paginate results
+curl "https://api.corebill.io/v1/customers?company_id=com_abc123&limit=10&offset=20"
+```
+
+## Update a Customer
+
+Use `PATCH` to update specific fields:
+
+```bash
+curl -X PATCH "https://api.corebill.io/v1/customers/cus_abc123?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "new-billing@acme.com",
+    "status": "active"
+  }'
+```
+
+<Note>
+  The API accepts `email` as a shorthand for `contact_email`, and `phone` as a shorthand for `contact_phone`.
+</Note>
+
+## Delete a Customer
+
+Deleting a customer performs a soft delete (sets `deleted_at` timestamp). Requires `admin` permission.
+
+```bash
+curl -X DELETE "https://api.corebill.io/v1/customers/cus_abc123?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key"
+```
+
+## Customer Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Customer display name |
+| `country` | string | Yes | ISO-2 country code |
+| `email` | string | No | Contact email |
+| `phone` | string | No | Contact phone |
+| `city` | string | No | City |
+| `currency` | string | No | Currency code (default: `USD`) |
+| `legal_name` | string | No | Legal/fiscal name |
+| `legal_address` | string | No | Legal address |
+| `legal_vat` | string | No | VAT/Tax ID |
+| `zipcode` | string | No | Postal code |
+| `notes` | string | No | Internal notes |

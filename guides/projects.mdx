@@ -1,0 +1,124 @@
+---
+title: "Projects"
+description: "Manage projects with tasks and time tracking through the API."
+---
+
+## Overview
+
+Projects allow you to organize work for clients with tasks, time tracking, and budget management. Projects can be associated with customers and support multiple billing types.
+
+## Create a Project
+
+```bash
+curl -X POST "https://api.corebill.io/v1/projects?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Website Redesign",
+    "description": "Complete redesign of the marketing website",
+    "customer_id": "cus_abc123",
+    "priority": "high",
+    "billing_type": "time_based",
+    "budget_hours": 200,
+    "hourly_rate": 75.00,
+    "start_date": "2025-03-01",
+    "due_date": "2025-05-01"
+  }'
+```
+
+## Statuses
+
+| Status | Description |
+|--------|-------------|
+| `draft` | Not yet started |
+| `in_progress` | Actively being worked on |
+| `on_hold` | Paused |
+| `review` | Under review |
+| `completed` | Finished |
+| `cancelled` | Cancelled |
+
+## Billing Types
+
+| Type | Description |
+|------|-------------|
+| `time_based` | Bill by hours tracked |
+| `fixed_price` | Fixed project price |
+| `mixed` | Combination of both |
+
+## Tasks
+
+Each project can have tasks with their own status, assignee, and time estimates.
+
+```bash
+# Create a task
+curl -X POST "https://api.corebill.io/v1/projects/pro_abc123/tasks?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Design homepage mockup",
+    "priority": "high",
+    "status": "todo",
+    "estimated_hours": 8,
+    "is_billable": true,
+    "tags": ["design", "frontend"]
+  }'
+```
+
+### Task Statuses
+
+`backlog` > `todo` > `in_progress` > `in_review` > `completed` | `cancelled`
+
+## Time Entries
+
+Track time spent on projects and tasks:
+
+```bash
+# Log time
+curl -X POST "https://api.corebill.io/v1/projects/pro_abc123/time-entries?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task_id": "tsk_abc123",
+    "entry_date": "2025-04-10",
+    "duration_minutes": 480,
+    "hourly_rate": 75.00,
+    "description": "Implemented responsive navigation",
+    "is_billable": true
+  }'
+```
+
+### Time Summary
+
+Get aggregated time data for a project:
+
+```bash
+curl "https://api.corebill.io/v1/projects/pro_abc123/time-entries/summary?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key"
+```
+
+```json
+{
+  "data": {
+    "totalHours": 120.5,
+    "totalRevenue": 9037.50,
+    "totalCost": 4518.75,
+    "profit": 4518.75,
+    "billableHours": 100.0,
+    "nonBillableHours": 20.5,
+    "invoicedHours": 60.0,
+    "uninvoicedHours": 60.5
+  }
+}
+```
+
+<Note>
+  Time entries that have been invoiced (`invoiced: true`) cannot be edited or deleted.
+</Note>
+
+## ID Prefixes
+
+| Resource | Prefix | Example |
+|----------|--------|---------|
+| Project | `pro_` | `pro_a1b2c3d4e5f6` |
+| Task | `tsk_` | `tsk_a1b2c3d4e5f6` |
+| Time Entry | `tme_` | `tme_a1b2c3d4e5f6` |

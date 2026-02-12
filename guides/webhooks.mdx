@@ -1,0 +1,49 @@
+---
+title: "Webhooks"
+description: "Receive real-time notifications when events occur in Corebill."
+---
+
+<Info>
+  Webhooks are currently in development. This page documents the planned implementation.
+</Info>
+
+## Overview
+
+Webhooks allow you to receive HTTP POST notifications when events occur in your Corebill account, such as when an invoice is paid or a quote is approved.
+
+## Planned Events
+
+| Event | Description |
+|-------|-------------|
+| `invoice.created` | A new invoice was created |
+| `invoice.sent` | An invoice was sent to a customer |
+| `invoice.paid` | An invoice was fully paid |
+| `invoice.overdue` | An invoice passed its due date |
+| `quote.created` | A new quote was created |
+| `quote.approved` | A customer approved a quote |
+| `quote.rejected` | A customer rejected a quote |
+| `customer.created` | A new customer was created |
+| `project.created` | A new project was created |
+| `project.completed` | A project was marked as completed |
+| `task.created` | A new task was created |
+| `task.completed` | A task was completed |
+
+## Payload Format
+
+```json
+{
+  "event": "invoice.paid",
+  "timestamp": "2025-04-15T14:30:00Z",
+  "data": {
+    "id": "inv_abc123",
+    "invoice_number": "INV-2025-000001",
+    "total": 5800.00,
+    "amount_paid": 5800.00,
+    "customer_id": "cus_abc123"
+  }
+}
+```
+
+## Configuration
+
+Webhook endpoints will be configurable from the **Settings > Developers** section in the Corebill dashboard.

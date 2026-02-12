@@ -1,0 +1,72 @@
+---
+title: "Quotes"
+description: "Create and manage quotes with versioning support."
+---
+
+## Overview
+
+Quotes (cotizaciones) allow you to send proposals to customers before creating invoices. They support the same line items, taxes, and discounts as invoices, plus versioning.
+
+## Create a Quote
+
+```bash
+curl -X POST "https://api.corebill.io/v1/quotes?company_id=com_abc123" \
+  -H "Authorization: Bearer sk_live_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "cus_abc123",
+    "valid_until": "2025-05-15",
+    "payment_terms": "50% upfront, 50% on delivery",
+    "items": [
+      {
+        "name": "Website Redesign",
+        "description": "Complete redesign including UX research",
+        "quantity": 1,
+        "unit": "project",
+        "unit_price": 8000.00
+      },
+      {
+        "name": "Monthly Maintenance",
+        "quantity": 6,
+        "unit": "month",
+        "unit_price": 500.00
+      }
+    ]
+  }'
+```
+
+## Quote Numbers
+
+Numbers include a version suffix: `{PREFIX}-{YEAR}-{COUNTER}-{VERSION}`
+
+Example: `QUO-2025-00001-1`
+
+When a quote is revised, the version number increments.
+
+## Statuses
+
+| Status | Description |
+|--------|-------------|
+| `draft` | Initial state |
+| `sent` | Sent to the customer |
+| `viewed` | Customer has viewed |
+| `approved` | Customer approved the quote |
+| `rejected` | Customer rejected |
+| `expired` | Past the `valid_until` date |
+| `converted` | Converted to an invoice |
+
+## Defaults
+
+- `issue_date` defaults to today
+- `valid_until` defaults to 30 days from `issue_date`
+- `currency` defaults to the company's currency
+
+## Filtering
+
+```bash
+# By status
+curl ".../quotes?company_id=com_abc123&status=approved"
+
+# By customer
+curl ".../quotes?company_id=com_abc123&customer_id=cus_abc123"
+```

@@ -1,0 +1,82 @@
+---
+title: "Error Handling"
+description: "Understand API error responses and how to handle them."
+---
+
+## Error Format
+
+All error responses follow the same format:
+
+```json
+{
+  "error": "Human-readable error message"
+}
+```
+
+## HTTP Status Codes
+
+| Code | Description | Common causes |
+|------|-------------|---------------|
+| `400` | Bad Request | Missing required fields, invalid parameters |
+| `401` | Unauthorized | Missing or invalid API key |
+| `403` | Forbidden | Insufficient permissions for the operation |
+| `404` | Not Found | Resource doesn't exist or doesn't belong to your company |
+| `500` | Internal Error | Server-side error |
+
+## Common Errors
+
+### Missing company_id
+
+```json
+// 400
+{ "error": "company_id query parameter is required" }
+```
+
+### Invalid API key
+
+```json
+// 401
+{ "error": "Invalid API key" }
+```
+
+### Insufficient permissions
+
+```json
+// 403
+{ "error": "Insufficient permissions. Write access required." }
+```
+
+### Resource not found
+
+```json
+// 404
+{ "error": "Customer not found" }
+```
+
+### Missing required fields
+
+```json
+// 400
+{ "error": "name is required" }
+```
+
+### Invalid status value
+
+```json
+// 400
+{ "error": "Invalid status. Must be one of: draft, sent, viewed, paid, overdue, cancelled" }
+```
+
+### Business rule violations
+
+```json
+// 400
+{ "error": "Cannot delete a paid invoice" }
+```
+
+## Best Practices
+
+- Always check the HTTP status code before parsing the response body
+- Use the `error` message for debugging, not for programmatic logic
+- Implement retry logic with exponential backoff for `500` errors
+- Log error responses for troubleshooting

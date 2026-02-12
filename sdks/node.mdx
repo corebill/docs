@@ -1,0 +1,82 @@
+---
+title: "Node.js SDK"
+description: "TypeScript/JavaScript SDK for the Corebill API."
+---
+
+<Info>
+  The Node.js SDK is currently in development. This page documents the planned API.
+</Info>
+
+## Installation
+
+```bash
+npm install @corebill/sdk
+```
+
+## Quick Start
+
+```typescript
+import { Corebill } from '@corebill/sdk';
+
+const corebill = new Corebill({
+  apiKey: 'sk_live_your_api_key',
+  companyId: 'com_abc123'
+});
+
+// List customers
+const customers = await corebill.customers.list({ limit: 10 });
+
+// Create an invoice
+const invoice = await corebill.invoices.create({
+  customer_id: 'cus_abc123',
+  items: [
+    {
+      name: 'Web Development',
+      quantity: 40,
+      unit: 'hour',
+      unit_price: 75.00
+    }
+  ]
+});
+
+console.log(invoice.invoice_number); // INV-2025-000001
+```
+
+## Resources
+
+All resources follow the same pattern:
+
+```typescript
+// List
+const list = await corebill.customers.list({ search: 'acme' });
+
+// Get
+const customer = await corebill.customers.get('cus_abc123');
+
+// Create
+const newCustomer = await corebill.customers.create({ name: 'Acme', country: 'US' });
+
+// Update
+const updated = await corebill.customers.update('cus_abc123', { email: 'new@acme.com' });
+
+// Delete
+await corebill.customers.delete('cus_abc123');
+```
+
+## Available Resources
+
+- `corebill.companies`
+- `corebill.customers`
+- `corebill.invoices`
+- `corebill.quotes`
+- `corebill.projects`
+- `corebill.projects.tasks(projectId)`
+- `corebill.projects.timeEntries(projectId)`
+
+## TypeScript Support
+
+The SDK is written in TypeScript and provides full type definitions for all request and response objects.
+
+```typescript
+import type { Customer, Invoice, CreateInvoiceParams } from '@corebill/sdk';
+```

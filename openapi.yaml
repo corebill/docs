@@ -1,0 +1,3495 @@
+openapi: 3.1.0
+info:
+  title: Corebill API
+  version: 1.0.0
+  description: |
+    REST API for managing projects, quotes, invoices, and customers.
+    Designed for developers, freelancers, and small businesses.
+
+    ## Authentication
+
+    All requests must include an API key in the `Authorization` header using the Bearer scheme:
+
+    ```
+    Authorization: Bearer sk_xxx
+    ```
+
+    API keys can be generated from the Corebill dashboard under the **Developers** section.
+
+    ### Permission levels
+
+    API keys have one of three hierarchical permission levels:
+
+    | Level | Value | Description |
+    |-------|-------|-------------|
+    | `read` | 1 | Read-only access to all resources |
+    | `write` | 2 | Read + create and update resources |
+    | `admin` | 3 | Full access including delete operations |
+
+    ## Company context
+
+    All endpoints (except `GET /companies`) require a `company_id` query parameter to scope the request to a specific company within your organization.
+
+    ## Pagination
+
+    List endpoints support pagination via `limit` and `offset` query parameters. The response includes a `pagination` object with `total`, `limit`, and `offset` fields.
+
+    ## ID prefixes
+
+    All resource IDs use custom prefixes for easy identification:
+
+    | Resource | Prefix | Example |
+    |----------|--------|---------|
+    | Company | `com_` | `com_abc123def456` |
+    | Customer | `cus_` | `cus_abc123def456` |
+    | Invoice | `inv_` | `inv_abc123def456` |
+    | Quote | `quo_` | `quo_abc123def456` |
+    | Project | `pro_` | `pro_abc123def456` |
+    | Task | `tsk_` | `tsk_abc123def456` |
+    | Time Entry | `tme_` | `tme_abc123def456` |
+    | Line Item | `di_` | `di_abc123def456` |
+  contact:
+    email: support@corebill.io
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.corebill.io/v1
+    description: Production
+
+tags:
+  - name: Companies
+    description: Manage companies within your organization
+  - name: Customers
+    description: Manage customers for a company
+  - name: Invoices
+    description: Create and manage invoices
+  - name: Quotes
+    description: Create and manage quotes
+  - name: Projects
+    description: Manage projects with tasks and time tracking
+  - name: Tasks
+    description: Manage tasks within projects
+  - name: Time Entries
+    description: Track time spent on projects and tasks
+
+security:
+  - bearerAuth: []
+
+paths:
+  /companies:
+    get:
+      operationId: listCompanies
+      summary: List companies
+      description: Returns all companies accessible with the current API key. This is the only endpoint that does not require a `company_id` parameter.
+      tags:
+        - Companies
+      responses:
+        "200":
+          description: List of companies
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - companies
+                    properties:
+                      companies:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Company"
+              example:
+                data:
+                  companies:
+                    - id: "com_k8x2m9p4q7w1"
+                      name: "Acme Corp"
+                      slug: "acme-corp"
+                      currency: "USD"
+                      invoice_prefix: "INV"
+                      quote_prefix: "QUO"
+                      logo_url: "https://storage.example.com/logos/acme.png"
+                      created_at: "2025-01-15T10:30:00.000Z"
+                    - id: "com_r3t6y9u2i5o8"
+                      name: "Startup Labs"
+                      slug: "startup-labs"
+                      currency: "EUR"
+                      invoice_prefix: "SL"
+                      quote_prefix: "SLQ"
+                      logo_url: null
+                      created_at: "2025-02-20T14:00:00.000Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List customers
+      description: Returns a paginated list of customers for a company. Supports search by name or email.
+      tags:
+        - Customers
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: search
+          in: query
+          description: Search customers by name or email (case-insensitive partial match)
+          schema:
+            type: string
+          example: "john"
+      responses:
+        "200":
+          description: Paginated list of customers
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - customers
+                      - pagination
+                    properties:
+                      customers:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CustomerSummary"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+              example:
+                data:
+                  customers:
+                    - id: "cus_a1b2c3d4e5f6"
+                      name: "John Doe"
+                      slug: "john-doe"
+                      contact_email: "john@example.com"
+                      contact_phone: "+1-555-0100"
+                      country: "US"
+                      city: "San Francisco"
+                      currency: "USD"
+                      status: "active"
+                      legal_name: "John Doe LLC"
+                      legal_address: "123 Market St, San Francisco, CA 94105"
+                      legal_vat: "US123456789"
+                      zipcode: "94105"
+                      created_at: "2025-03-01T09:00:00.000Z"
+                      updated_at: "2025-03-15T11:30:00.000Z"
+                  pagination:
+                    total: 42
+                    limit: 50
+                    offset: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createCustomer
+      summary: Create a customer
+      description: Creates a new customer for a company. A URL-friendly slug is automatically generated from the customer name.
+      tags:
+        - Customers
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCreate"
+            example:
+              name: "Jane Smith"
+              country: "US"
+              email: "jane@smithdesign.com"
+              phone: "+1-555-0200"
+              city: "New York"
+              currency: "USD"
+              legal_name: "Smith Design Inc."
+              legal_address: "456 Broadway, New York, NY 10013"
+              legal_vat: "US987654321"
+              zipcode: "10013"
+      responses:
+        "201":
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CustomerSummary"
+              example:
+                data:
+                  id: "cus_g7h8i9j0k1l2"
+                  name: "Jane Smith"
+                  slug: "jane-smith"
+                  contact_email: "jane@smithdesign.com"
+                  contact_phone: "+1-555-0200"
+                  country: "US"
+                  city: "New York"
+                  currency: "USD"
+                  status: "active"
+                  legal_name: "Smith Design Inc."
+                  legal_address: "456 Broadway, New York, NY 10013"
+                  legal_vat: "US987654321"
+                  zipcode: "10013"
+                  created_at: "2025-04-10T16:45:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      summary: Get a customer
+      description: Returns the full details of a single customer, including notes.
+      tags:
+        - Customers
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Customer"
+              example:
+                data:
+                  id: "cus_a1b2c3d4e5f6"
+                  name: "John Doe"
+                  slug: "john-doe"
+                  contact_email: "john@example.com"
+                  contact_phone: "+1-555-0100"
+                  country: "US"
+                  city: "San Francisco"
+                  currency: "USD"
+                  status: "active"
+                  legal_name: "John Doe LLC"
+                  legal_address: "123 Market St, San Francisco, CA 94105"
+                  legal_vat: "US123456789"
+                  zipcode: "94105"
+                  notes: "Preferred payment method: wire transfer"
+                  created_at: "2025-03-01T09:00:00.000Z"
+                  updated_at: "2025-03-15T11:30:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      operationId: updateCustomer
+      summary: Update a customer
+      description: |
+        Updates one or more fields on an existing customer.
+
+        Shorthand fields are supported: `email` maps to `contact_email` and `phone` maps to `contact_phone`.
+      tags:
+        - Customers
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+            example:
+              name: "John Doe Jr."
+              email: "johnjr@example.com"
+              notes: "Updated contact information"
+      responses:
+        "200":
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Customer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteCustomer
+      summary: Delete a customer
+      description: Soft-deletes a customer. Requires admin permission.
+      tags:
+        - Customers
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Deleted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /invoices:
+    get:
+      operationId: listInvoices
+      summary: List invoices
+      description: Returns a paginated list of invoices for a company. Supports filtering by status and customer.
+      tags:
+        - Invoices
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: Filter by invoice status
+          schema:
+            type: string
+            enum:
+              - draft
+              - sent
+              - viewed
+              - partial
+              - paid
+              - overdue
+              - cancelled
+          example: "sent"
+        - name: customer_id
+          in: query
+          description: Filter by customer ID
+          schema:
+            type: string
+          example: "cus_a1b2c3d4e5f6"
+      responses:
+        "200":
+          description: Paginated list of invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - invoices
+                      - pagination
+                    properties:
+                      invoices:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/InvoiceSummary"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+              example:
+                data:
+                  invoices:
+                    - id: "inv_m3n4o5p6q7r8"
+                      invoice_number: "INV-2025-000001"
+                      customer_id: "cus_a1b2c3d4e5f6"
+                      status: "sent"
+                      issue_date: "2025-04-01"
+                      due_date: "2025-05-01"
+                      subtotal: 5000.00
+                      discount_type: "percentage"
+                      discount_value: 10
+                      discount_amount: 500.00
+                      subtotal_after_discount: 4500.00
+                      tax_rate: 16
+                      tax_amount: 720.00
+                      total: 5220.00
+                      amount_paid: 0.00
+                      amount_due: 5220.00
+                      currency: "USD"
+                      notes: "Net 30 payment terms"
+                      payment_terms: "Net 30"
+                      created_at: "2025-04-01T10:00:00.000Z"
+                      updated_at: "2025-04-01T10:05:00.000Z"
+                      customer:
+                        id: "cus_a1b2c3d4e5f6"
+                        name: "John Doe"
+                        contact_email: "john@example.com"
+                  pagination:
+                    total: 15
+                    limit: 50
+                    offset: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createInvoice
+      summary: Create an invoice
+      description: |
+        Creates a new invoice in `draft` status. Totals are automatically calculated from the provided line items.
+
+        Invoice numbers are auto-generated using the format `{PREFIX}-{YEAR}-{COUNTER}` where the counter is a 6-digit zero-padded number (e.g., `INV-2025-000001`).
+
+        If `issue_date` is not provided, today's date is used. If `due_date` is not provided, it defaults to 30 days after the issue date.
+      tags:
+        - Invoices
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceCreate"
+            example:
+              customer_id: "cus_a1b2c3d4e5f6"
+              issue_date: "2025-04-15"
+              due_date: "2025-05-15"
+              currency: "USD"
+              notes: "Thank you for your business"
+              payment_terms: "Net 30"
+              tax_rate: 16
+              discount_type: "percentage"
+              discount_value: 10
+              items:
+                - name: "Web Development"
+                  description: "Full-stack web application development"
+                  quantity: 40
+                  unit: "hour"
+                  unit_price: 150.00
+                - name: "UI/UX Design"
+                  description: "User interface and experience design"
+                  quantity: 20
+                  unit: "hour"
+                  unit_price: 120.00
+      responses:
+        "201":
+          description: Invoice created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InvoiceDetail"
+              example:
+                data:
+                  id: "inv_s9t0u1v2w3x4"
+                  invoice_number: "INV-2025-000002"
+                  customer_id: "cus_a1b2c3d4e5f6"
+                  status: "draft"
+                  issue_date: "2025-04-15"
+                  due_date: "2025-05-15"
+                  subtotal: 8400.00
+                  discount_type: "percentage"
+                  discount_value: 10
+                  discount_amount: 840.00
+                  subtotal_after_discount: 7560.00
+                  tax_rate: 16
+                  tax_amount: 1209.60
+                  total: 8769.60
+                  amount_paid: 0.00
+                  amount_due: 8769.60
+                  currency: "USD"
+                  notes: "Thank you for your business"
+                  payment_terms: "Net 30"
+                  public_token: "1713182400000-k8x2m9p4q7w1"
+                  created_at: "2025-04-15T12:00:00.000Z"
+                  customer:
+                    id: "cus_a1b2c3d4e5f6"
+                    name: "John Doe"
+                    contact_email: "john@example.com"
+                  items:
+                    - id: "di_y5z6a7b8c9d0"
+                      item_name: "Web Development"
+                      description: "Full-stack web application development"
+                      quantity: 40
+                      unit: "hour"
+                      unit_price: 150.00
+                      subtotal: 6000.00
+                      total: 6000.00
+                      sort_order: 0
+                    - id: "di_e1f2g3h4i5j6"
+                      item_name: "UI/UX Design"
+                      description: "User interface and experience design"
+                      quantity: 20
+                      unit: "hour"
+                      unit_price: 120.00
+                      subtotal: 2400.00
+                      total: 2400.00
+                      sort_order: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Customer not found"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      summary: Get an invoice
+      description: Returns the full details of a single invoice, including line items and embedded customer data.
+      tags:
+        - Invoices
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Invoice details with items
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InvoiceDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      operationId: updateInvoice
+      summary: Update an invoice
+      description: |
+        Updates an existing invoice. The fields that can be updated depend on the invoice status:
+
+        - **Draft invoices**: All fields can be updated, including `customer_id`, `issue_date`, `due_date`, `currency`, financial fields (`subtotal`, `discount_*`, `tax_*`, `total`), `notes`, `payment_terms`, and `status`.
+        - **Non-draft invoices**: Only `notes`, `payment_terms`, and `status` can be updated.
+
+        When updating the `total` on a draft invoice, `amount_due` is automatically recalculated based on the existing `amount_paid`.
+      tags:
+        - Invoices
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceUpdate"
+            example:
+              status: "sent"
+              notes: "Invoice sent to client via email"
+      responses:
+        "200":
+          description: Invoice updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InvoiceDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteInvoice
+      summary: Delete an invoice
+      description: |
+        Soft-deletes an invoice. Requires admin permission.
+
+        Paid invoices cannot be deleted. Attempting to delete a paid invoice returns a `400` error.
+      tags:
+        - Invoices
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Deleted"
+        "400":
+          description: Bad request (e.g., cannot delete a paid invoice)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Cannot delete a paid invoice"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /quotes:
+    get:
+      operationId: listQuotes
+      summary: List quotes
+      description: Returns a paginated list of quotes for a company. Supports filtering by status and customer.
+      tags:
+        - Quotes
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: Filter by quote status
+          schema:
+            type: string
+            enum:
+              - draft
+              - sent
+              - viewed
+              - approved
+              - rejected
+              - expired
+              - converted
+          example: "sent"
+        - name: customer_id
+          in: query
+          description: Filter by customer ID
+          schema:
+            type: string
+          example: "cus_a1b2c3d4e5f6"
+      responses:
+        "200":
+          description: Paginated list of quotes
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - quotes
+                      - pagination
+                    properties:
+                      quotes:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/QuoteSummary"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+              example:
+                data:
+                  quotes:
+                    - id: "quo_p1q2r3s4t5u6"
+                      quote_number: "QUO-2025-00001-1"
+                      customer_id: "cus_a1b2c3d4e5f6"
+                      status: "sent"
+                      issue_date: "2025-04-01"
+                      valid_until: "2025-05-01"
+                      subtotal: 12000.00
+                      discount_type: "fixed"
+                      discount_value: 500
+                      discount_amount: 500.00
+                      subtotal_after_discount: 11500.00
+                      tax_rate: 0
+                      tax_amount: 0.00
+                      total: 11500.00
+                      currency: "USD"
+                      notes: "Valid for 30 days"
+                      payment_terms: "50% upfront, 50% on delivery"
+                      created_at: "2025-04-01T08:00:00.000Z"
+                      updated_at: "2025-04-01T08:30:00.000Z"
+                      customer:
+                        id: "cus_a1b2c3d4e5f6"
+                        name: "John Doe"
+                        contact_email: "john@example.com"
+                  pagination:
+                    total: 8
+                    limit: 50
+                    offset: 0
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createQuote
+      summary: Create a quote
+      description: |
+        Creates a new quote in `draft` status. Totals are automatically calculated from the provided line items.
+
+        Quote numbers are auto-generated using the format `{PREFIX}-{YEAR}-{COUNTER}-{VERSION}` where the counter is a 5-digit zero-padded number and the version starts at 1 (e.g., `QUO-2025-00001-1`).
+
+        If `issue_date` is not provided, today's date is used. If `valid_until` is not provided, it defaults to 30 days after the issue date.
+      tags:
+        - Quotes
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteCreate"
+            example:
+              customer_id: "cus_a1b2c3d4e5f6"
+              issue_date: "2025-04-15"
+              valid_until: "2025-05-15"
+              currency: "USD"
+              notes: "This quote is valid for 30 days"
+              payment_terms: "50% upfront, 50% on delivery"
+              tax_rate: 0
+              discount_type: "fixed"
+              discount_value: 500
+              items:
+                - name: "Brand Identity Package"
+                  description: "Logo, color palette, typography, brand guidelines"
+                  quantity: 1
+                  unit: "project"
+                  unit_price: 8000.00
+                - name: "Website Design"
+                  description: "5-page responsive website design"
+                  quantity: 1
+                  unit: "project"
+                  unit_price: 4000.00
+      responses:
+        "201":
+          description: Quote created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/QuoteDetail"
+              example:
+                data:
+                  id: "quo_v7w8x9y0z1a2"
+                  quote_number: "QUO-2025-00002-1"
+                  customer_id: "cus_a1b2c3d4e5f6"
+                  status: "draft"
+                  issue_date: "2025-04-15"
+                  valid_until: "2025-05-15"
+                  subtotal: 12000.00
+                  discount_type: "fixed"
+                  discount_value: 500
+                  discount_amount: 500.00
+                  subtotal_after_discount: 11500.00
+                  tax_rate: 0
+                  tax_amount: 0.00
+                  total: 11500.00
+                  currency: "USD"
+                  notes: "This quote is valid for 30 days"
+                  payment_terms: "50% upfront, 50% on delivery"
+                  public_token: "1713182400000-v7w8x9y0z1a2"
+                  created_at: "2025-04-15T09:00:00.000Z"
+                  customer:
+                    id: "cus_a1b2c3d4e5f6"
+                    name: "John Doe"
+                    contact_email: "john@example.com"
+                  items:
+                    - id: "di_b3c4d5e6f7g8"
+                      item_name: "Brand Identity Package"
+                      description: "Logo, color palette, typography, brand guidelines"
+                      quantity: 1
+                      unit: "project"
+                      unit_price: 8000.00
+                      subtotal: 8000.00
+                      total: 8000.00
+                      sort_order: 0
+                    - id: "di_h9i0j1k2l3m4"
+                      item_name: "Website Design"
+                      description: "5-page responsive website design"
+                      quantity: 1
+                      unit: "project"
+                      unit_price: 4000.00
+                      subtotal: 4000.00
+                      total: 4000.00
+                      sort_order: 1
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Customer not found"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /quotes/{id}:
+    get:
+      operationId: getQuote
+      summary: Get a quote
+      description: Returns the full details of a single quote, including line items and embedded customer data.
+      tags:
+        - Quotes
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Quote details with items
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/QuoteDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      operationId: updateQuote
+      summary: Update a quote
+      description: |
+        Updates an existing quote. All editable fields can be updated regardless of quote status.
+
+        Updatable fields include: `customer_id`, `issue_date`, `valid_until`, `currency`, `notes`, `payment_terms`, `status`, and financial fields (`subtotal`, `discount_*`, `tax_*`, `total`).
+      tags:
+        - Quotes
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteUpdate"
+            example:
+              status: "approved"
+              notes: "Client approved via email on 2025-04-20"
+      responses:
+        "200":
+          description: Quote updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/QuoteDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteQuote
+      summary: Delete a quote
+      description: Soft-deletes a quote. Requires admin permission.
+      tags:
+        - Quotes
+      parameters:
+        - $ref: "#/components/parameters/QuoteId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Deleted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ─── Projects ────────────────────────────────────────
+
+  /projects:
+    get:
+      operationId: listProjects
+      summary: List projects
+      description: Returns a paginated list of projects for a company. Supports filtering by status, priority, customer, and date ranges.
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: "Filter by status. Comma-separated for multiple values (e.g. `in_progress,review`)"
+          schema:
+            type: string
+            example: "in_progress"
+        - name: priority
+          in: query
+          description: "Filter by priority. Comma-separated for multiple values"
+          schema:
+            type: string
+            example: "high"
+        - name: customer_id
+          in: query
+          description: Filter by customer ID
+          schema:
+            type: string
+            example: "cus_a1b2c3d4e5f6"
+        - name: assigned_to
+          in: query
+          description: Filter by assigned user ID
+          schema:
+            type: string
+        - name: is_archived
+          in: query
+          description: Include archived projects
+          schema:
+            type: boolean
+            default: false
+        - name: search
+          in: query
+          description: Search by title or public ID
+          schema:
+            type: string
+        - name: start_date_from
+          in: query
+          description: Filter projects starting from this date
+          schema:
+            type: string
+            format: date
+        - name: start_date_to
+          in: query
+          description: Filter projects starting up to this date
+          schema:
+            type: string
+            format: date
+        - name: due_date_from
+          in: query
+          description: Filter projects due from this date
+          schema:
+            type: string
+            format: date
+        - name: due_date_to
+          in: query
+          description: Filter projects due up to this date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - projects
+                      - pagination
+                    properties:
+                      projects:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProjectSummary"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createProject
+      summary: Create a project
+      description: Creates a new project for a company. Only `title` is required.
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectCreate"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ProjectDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      summary: Get a project
+      description: Returns a single project with stats (task counts, hours, revenue).
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ProjectDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      operationId: updateProject
+      summary: Update a project
+      description: Updates one or more fields of a project.
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ProjectDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteProject
+      summary: Delete a project
+      description: Permanently deletes a project and all associated tasks, time entries, comments, and files. Requires admin permission.
+      tags:
+        - Projects
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Deleted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ─── Tasks ──────────────────────────────────────────
+
+  /projects/{id}/tasks:
+    get:
+      operationId: listTasks
+      summary: List tasks
+      description: Returns a paginated list of tasks for a project. Supports filtering by status, priority, and assignee.
+      tags:
+        - Tasks
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: status
+          in: query
+          description: "Filter by status. Comma-separated for multiple values (e.g. `todo,in_progress`)"
+          schema:
+            type: string
+            example: "todo"
+        - name: priority
+          in: query
+          description: "Filter by priority. Comma-separated for multiple values"
+          schema:
+            type: string
+            example: "high"
+        - name: assigned_to
+          in: query
+          description: Filter by assigned user ID
+          schema:
+            type: string
+        - name: parent_task_id
+          in: query
+          description: "Filter by parent task ID. Use `null` for root-level tasks"
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Search by title or public ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - tasks
+                      - pagination
+                    properties:
+                      tasks:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Task"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createTask
+      summary: Create a task
+      description: Creates a new task within a project. Only `title` is required.
+      tags:
+        - Tasks
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreate"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{id}/tasks/{taskId}:
+    get:
+      operationId: getTask
+      summary: Get a task
+      description: Returns a single task with its details.
+      tags:
+        - Tasks
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+            example: "tsk_a1b2c3d4e5f6"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      operationId: updateTask
+      summary: Update a task
+      description: Updates one or more fields of a task.
+      tags:
+        - Tasks
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+            example: "tsk_a1b2c3d4e5f6"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteTask
+      summary: Delete a task
+      description: Permanently deletes a task and its associated comments and files. Requires admin permission.
+      tags:
+        - Tasks
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: taskId
+          in: path
+          required: true
+          description: Task ID
+          schema:
+            type: string
+            example: "tsk_a1b2c3d4e5f6"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Deleted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ─── Time Entries ───────────────────────────────────
+
+  /projects/{id}/time-entries:
+    get:
+      operationId: listTimeEntries
+      summary: List time entries
+      description: Returns a paginated list of time entries for a project, including a summary with total hours and amount.
+      tags:
+        - Time Entries
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - name: task_id
+          in: query
+          description: Filter by task ID
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: Filter by user ID
+          schema:
+            type: string
+        - name: is_billable
+          in: query
+          description: Filter by billable status
+          schema:
+            type: boolean
+        - name: is_invoiced
+          in: query
+          description: Filter by invoiced status
+          schema:
+            type: boolean
+        - name: entry_date_from
+          in: query
+          description: Filter entries from this date
+          schema:
+            type: string
+            format: date
+        - name: entry_date_to
+          in: query
+          description: Filter entries up to this date
+          schema:
+            type: string
+            format: date
+        - name: search
+          in: query
+          description: Search in description
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of time entries with summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    type: object
+                    required:
+                      - time_entries
+                      - summary
+                      - pagination
+                    properties:
+                      time_entries:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/TimeEntry"
+                      summary:
+                        type: object
+                        properties:
+                          total_hours:
+                            type: number
+                            format: double
+                            example: 45.5
+                          total_amount:
+                            type: number
+                            format: double
+                            example: 3412.50
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      operationId: createTimeEntry
+      summary: Create a time entry
+      description: Logs a new time entry for a project. Fields `entry_date`, `duration_minutes`, and `hourly_rate` are required.
+      tags:
+        - Time Entries
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimeEntryCreate"
+      responses:
+        "201":
+          description: Time entry created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/TimeEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{id}/time-entries/summary:
+    get:
+      operationId: getTimeEntriesSummary
+      summary: Get time tracking summary
+      description: Returns aggregated time tracking data for a project including total hours, revenue, cost, and profit.
+      tags:
+        - Time Entries
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Time tracking summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/TimeSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /projects/{id}/time-entries/{entryId}:
+    get:
+      operationId: getTimeEntry
+      summary: Get a time entry
+      description: Returns a single time entry.
+      tags:
+        - Time Entries
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: entryId
+          in: path
+          required: true
+          description: Time entry ID
+          schema:
+            type: string
+            example: "tme_a1b2c3d4e5f6"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          description: Time entry details
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/TimeEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    patch:
+      operationId: updateTimeEntry
+      summary: Update a time entry
+      description: Updates one or more fields of a time entry. Cannot update invoiced entries.
+      tags:
+        - Time Entries
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: entryId
+          in: path
+          required: true
+          description: Time entry ID
+          schema:
+            type: string
+            example: "tme_a1b2c3d4e5f6"
+        - $ref: "#/components/parameters/CompanyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimeEntryUpdate"
+      responses:
+        "200":
+          description: Updated time entry
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - data
+                properties:
+                  data:
+                    $ref: "#/components/schemas/TimeEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      operationId: deleteTimeEntry
+      summary: Delete a time entry
+      description: Permanently deletes a time entry. Cannot delete invoiced entries. Requires admin permission.
+      tags:
+        - Time Entries
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - name: entryId
+          in: path
+          required: true
+          description: Time entry ID
+          schema:
+            type: string
+            example: "tme_a1b2c3d4e5f6"
+        - $ref: "#/components/parameters/CompanyId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Deleted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: |
+        API key authentication. Generate keys from the Corebill dashboard under the Developers section.
+
+        Example: `Authorization: Bearer sk_live_abc123def456`
+
+  parameters:
+    CompanyId:
+      name: company_id
+      in: query
+      required: true
+      description: The company ID to scope the request to
+      schema:
+        type: string
+      example: "com_k8x2m9p4q7w1"
+
+    CustomerId:
+      name: id
+      in: path
+      required: true
+      description: The customer ID
+      schema:
+        type: string
+      example: "cus_a1b2c3d4e5f6"
+
+    InvoiceId:
+      name: id
+      in: path
+      required: true
+      description: The invoice ID
+      schema:
+        type: string
+      example: "inv_m3n4o5p6q7r8"
+
+    QuoteId:
+      name: id
+      in: path
+      required: true
+      description: The quote ID
+      schema:
+        type: string
+      example: "quo_p1q2r3s4t5u6"
+
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      description: The project ID
+      schema:
+        type: string
+      example: "pro_a1b2c3d4e5f6"
+
+    Limit:
+      name: limit
+      in: query
+      description: Maximum number of records to return (default 50)
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 100
+      example: 50
+
+    Offset:
+      name: offset
+      in: query
+      description: Number of records to skip for pagination (default 0)
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      example: 0
+
+  schemas:
+    Company:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - currency
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique company identifier
+          example: "com_k8x2m9p4q7w1"
+        name:
+          type: string
+          description: Company display name
+          example: "Acme Corp"
+        slug:
+          type: string
+          description: URL-friendly company identifier
+          example: "acme-corp"
+        currency:
+          type: string
+          description: Default currency code (ISO 4217)
+          example: "USD"
+        invoice_prefix:
+          type: string
+          description: Prefix used for invoice number generation
+          example: "INV"
+        quote_prefix:
+          type: string
+          description: Prefix used for quote number generation
+          example: "QUO"
+        logo_url:
+          type:
+            - string
+            - "null"
+          description: URL to the company logo image
+          example: "https://storage.example.com/logos/acme.png"
+        created_at:
+          type: string
+          format: date-time
+          description: When the company was created
+          example: "2025-01-15T10:30:00.000Z"
+
+    CustomerSummary:
+      type: object
+      description: Customer object returned in list endpoints
+      required:
+        - id
+        - name
+        - slug
+        - status
+        - currency
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique customer identifier
+          example: "cus_a1b2c3d4e5f6"
+        name:
+          type: string
+          description: Customer display name
+          example: "John Doe"
+        slug:
+          type: string
+          description: URL-friendly customer identifier (auto-generated)
+          example: "john-doe"
+        contact_email:
+          type:
+            - string
+            - "null"
+          format: email
+          description: Primary contact email
+          example: "john@example.com"
+        contact_phone:
+          type:
+            - string
+            - "null"
+          description: Primary contact phone number
+          example: "+1-555-0100"
+        country:
+          type:
+            - string
+            - "null"
+          description: Country code or name
+          example: "US"
+        city:
+          type:
+            - string
+            - "null"
+          description: City name
+          example: "San Francisco"
+        currency:
+          type: string
+          description: Preferred currency code (ISO 4217)
+          example: "USD"
+        status:
+          type: string
+          description: Customer status
+          enum:
+            - active
+            - inactive
+          example: "active"
+        legal_name:
+          type:
+            - string
+            - "null"
+          description: Legal business name
+          example: "John Doe LLC"
+        legal_address:
+          type:
+            - string
+            - "null"
+          description: Legal business address
+          example: "123 Market St, San Francisco, CA 94105"
+        legal_vat:
+          type:
+            - string
+            - "null"
+          description: VAT or tax identification number
+          example: "US123456789"
+        zipcode:
+          type:
+            - string
+            - "null"
+          description: ZIP or postal code
+          example: "94105"
+        created_at:
+          type: string
+          format: date-time
+          description: When the customer was created
+          example: "2025-03-01T09:00:00.000Z"
+        updated_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: When the customer was last updated
+          example: "2025-03-15T11:30:00.000Z"
+
+    Customer:
+      description: Full customer object including notes (returned by GET /customers/{id})
+      allOf:
+        - $ref: "#/components/schemas/CustomerSummary"
+        - type: object
+          properties:
+            notes:
+              type:
+                - string
+                - "null"
+              description: Internal notes about the customer
+              example: "Preferred payment method: wire transfer"
+
+    CustomerCreate:
+      type: object
+      required:
+        - name
+        - country
+      properties:
+        name:
+          type: string
+          description: Customer display name
+          example: "Jane Smith"
+        country:
+          type: string
+          description: Country code or name
+          example: "US"
+        email:
+          type: string
+          format: email
+          description: Contact email (stored as `contact_email`)
+          example: "jane@smithdesign.com"
+        phone:
+          type: string
+          description: Contact phone (stored as `contact_phone`)
+          example: "+1-555-0200"
+        city:
+          type: string
+          description: City name
+          example: "New York"
+        currency:
+          type: string
+          description: Preferred currency code (ISO 4217). Defaults to `USD`
+          default: "USD"
+          example: "USD"
+        legal_name:
+          type: string
+          description: Legal business name
+          example: "Smith Design Inc."
+        legal_address:
+          type: string
+          description: Legal business address
+          example: "456 Broadway, New York, NY 10013"
+        legal_vat:
+          type: string
+          description: VAT or tax identification number
+          example: "US987654321"
+        zipcode:
+          type: string
+          description: ZIP or postal code
+          example: "10013"
+
+    CustomerUpdate:
+      type: object
+      description: |
+        All fields are optional. Shorthand fields `email` and `phone` map to `contact_email` and `contact_phone` respectively.
+      properties:
+        name:
+          type: string
+          description: Customer display name
+          example: "John Doe Jr."
+        contact_email:
+          type: string
+          format: email
+          description: Contact email
+          example: "johnjr@example.com"
+        email:
+          type: string
+          format: email
+          description: Shorthand for `contact_email`
+          example: "johnjr@example.com"
+        contact_phone:
+          type: string
+          description: Contact phone
+          example: "+1-555-0300"
+        phone:
+          type: string
+          description: Shorthand for `contact_phone`
+          example: "+1-555-0300"
+        country:
+          type: string
+          description: Country code or name
+          example: "US"
+        city:
+          type: string
+          description: City name
+          example: "Los Angeles"
+        currency:
+          type: string
+          description: Preferred currency code (ISO 4217)
+          example: "EUR"
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+          description: Customer status
+          example: "active"
+        legal_name:
+          type: string
+          description: Legal business name
+          example: "Doe Enterprises LLC"
+        legal_address:
+          type: string
+          description: Legal business address
+          example: "789 Sunset Blvd, Los Angeles, CA 90028"
+        legal_vat:
+          type: string
+          description: VAT or tax identification number
+          example: "US111222333"
+        zipcode:
+          type: string
+          description: ZIP or postal code
+          example: "90028"
+        notes:
+          type: string
+          description: Internal notes about the customer
+          example: "VIP client, priority support"
+
+    LineItem:
+      type: object
+      description: A line item on an invoice or quote
+      required:
+        - id
+        - item_name
+        - quantity
+        - unit_price
+        - subtotal
+        - total
+        - sort_order
+      properties:
+        id:
+          type: string
+          description: Unique line item identifier
+          example: "di_y5z6a7b8c9d0"
+        item_name:
+          type: string
+          description: Name of the product or service
+          example: "Web Development"
+        description:
+          type:
+            - string
+            - "null"
+          description: Detailed description
+          example: "Full-stack web application development"
+        quantity:
+          type: number
+          description: Quantity of the item
+          example: 40
+        unit:
+          type:
+            - string
+            - "null"
+          description: Unit of measurement
+          example: "hour"
+        unit_price:
+          type: number
+          format: double
+          description: Price per unit
+          example: 150.00
+        subtotal:
+          type: number
+          format: double
+          description: Subtotal before document-level discounts (quantity * unit_price)
+          example: 6000.00
+        total:
+          type: number
+          format: double
+          description: Total for this line item
+          example: 6000.00
+        sort_order:
+          type: integer
+          description: Display order (zero-based)
+          example: 0
+
+    LineItemInput:
+      type: object
+      description: Line item input for creating invoices or quotes
+      required:
+        - name
+        - unit_price
+      properties:
+        name:
+          type: string
+          description: Name of the product or service
+          example: "Web Development"
+        description:
+          type: string
+          description: Detailed description
+          example: "Full-stack web application development"
+        quantity:
+          type: number
+          description: Quantity of the item (defaults to 1)
+          default: 1
+          example: 40
+        unit:
+          type: string
+          description: Unit of measurement (defaults to `unit`)
+          default: "unit"
+          example: "hour"
+        unit_price:
+          type: number
+          format: double
+          description: Price per unit
+          example: 150.00
+
+    EmbeddedCustomer:
+      type: object
+      description: Embedded customer summary on invoices and quotes
+      required:
+        - id
+        - name
+        - contact_email
+      properties:
+        id:
+          type: string
+          example: "cus_a1b2c3d4e5f6"
+        name:
+          type: string
+          example: "John Doe"
+        contact_email:
+          type:
+            - string
+            - "null"
+          format: email
+          example: "john@example.com"
+
+    InvoiceSummary:
+      type: object
+      description: Invoice object returned in list endpoints (without items)
+      required:
+        - id
+        - invoice_number
+        - customer_id
+        - status
+        - issue_date
+        - due_date
+        - total
+        - amount_paid
+        - amount_due
+        - currency
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique invoice identifier
+          example: "inv_m3n4o5p6q7r8"
+        invoice_number:
+          type: string
+          description: "Auto-generated invoice number. Format: {PREFIX}-{YEAR}-{COUNTER:6}"
+          example: "INV-2025-000001"
+        customer_id:
+          type: string
+          description: Associated customer ID
+          example: "cus_a1b2c3d4e5f6"
+        status:
+          type: string
+          description: Invoice status
+          enum:
+            - draft
+            - sent
+            - viewed
+            - in_review
+            - partial
+            - paid
+            - overdue
+            - cancelled
+          example: "sent"
+        issue_date:
+          type: string
+          format: date
+          description: Date the invoice was issued
+          example: "2025-04-01"
+        due_date:
+          type: string
+          format: date
+          description: Payment due date
+          example: "2025-05-01"
+        subtotal:
+          type: number
+          format: double
+          description: Sum of all line items before discount
+          example: 5000.00
+        discount_type:
+          type:
+            - string
+            - "null"
+          enum:
+            - percentage
+            - fixed
+            - null
+          description: Type of discount applied
+          example: "percentage"
+        discount_value:
+          type:
+            - number
+            - "null"
+          description: Discount value (percentage or fixed amount)
+          example: 10
+        discount_amount:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Calculated discount amount
+          example: 500.00
+        subtotal_after_discount:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Subtotal minus discount
+          example: 4500.00
+        tax_rate:
+          type:
+            - number
+            - "null"
+          description: Tax rate as a percentage
+          example: 16
+        tax_amount:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Calculated tax amount
+          example: 720.00
+        total:
+          type: number
+          format: double
+          description: Final total (subtotal_after_discount + tax_amount)
+          example: 5220.00
+        amount_paid:
+          type: number
+          format: double
+          description: Total amount paid so far
+          example: 0.00
+        amount_due:
+          type: number
+          format: double
+          description: Remaining amount due (total - amount_paid)
+          example: 5220.00
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          example: "USD"
+        notes:
+          type:
+            - string
+            - "null"
+          description: Invoice notes visible to the customer
+          example: "Net 30 payment terms"
+        payment_terms:
+          type:
+            - string
+            - "null"
+          description: Payment terms description
+          example: "Net 30"
+        created_at:
+          type: string
+          format: date-time
+          description: When the invoice was created
+          example: "2025-04-01T10:00:00.000Z"
+        updated_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: When the invoice was last updated
+          example: "2025-04-01T10:05:00.000Z"
+        customer:
+          $ref: "#/components/schemas/EmbeddedCustomer"
+
+    InvoiceDetail:
+      description: Full invoice object including items and public_token (returned by GET /invoices/{id} and POST /invoices)
+      allOf:
+        - $ref: "#/components/schemas/InvoiceSummary"
+        - type: object
+          properties:
+            public_token:
+              type:
+                - string
+                - "null"
+              description: Token for public invoice viewing URL
+              example: "1713182400000-k8x2m9p4q7w1"
+            items:
+              type: array
+              description: Invoice line items
+              items:
+                $ref: "#/components/schemas/LineItem"
+
+    InvoiceCreate:
+      type: object
+      required:
+        - customer_id
+      properties:
+        customer_id:
+          type: string
+          description: Customer ID to associate with this invoice
+          example: "cus_a1b2c3d4e5f6"
+        issue_date:
+          type: string
+          format: date
+          description: Invoice issue date (defaults to today)
+          example: "2025-04-15"
+        due_date:
+          type: string
+          format: date
+          description: Payment due date (defaults to 30 days from issue_date)
+          example: "2025-05-15"
+        currency:
+          type: string
+          description: Currency code (ISO 4217). Defaults to company currency or `USD`
+          example: "USD"
+        notes:
+          type: string
+          description: Invoice notes visible to the customer
+          example: "Thank you for your business"
+        payment_terms:
+          type: string
+          description: Payment terms description
+          example: "Net 30"
+        tax_rate:
+          type: number
+          description: Tax rate as a percentage (e.g., 16 for 16%)
+          example: 16
+        tax_id:
+          type: string
+          description: Tax identifier or label
+          example: "VAT"
+        discount_type:
+          type: string
+          enum:
+            - percentage
+            - fixed
+          description: Type of discount to apply
+          example: "percentage"
+        discount_value:
+          type: number
+          description: Discount value (percentage or fixed amount)
+          example: 10
+        items:
+          type: array
+          description: Line items for the invoice
+          items:
+            $ref: "#/components/schemas/LineItemInput"
+
+    InvoiceUpdate:
+      type: object
+      description: |
+        Fields available for update depend on invoice status.
+        Draft invoices allow all fields. Non-draft invoices only allow `notes`, `payment_terms`, and `status`.
+      properties:
+        customer_id:
+          type: string
+          description: Customer ID (draft only)
+          example: "cus_a1b2c3d4e5f6"
+        issue_date:
+          type: string
+          format: date
+          description: Invoice issue date (draft only)
+          example: "2025-04-20"
+        due_date:
+          type: string
+          format: date
+          description: Payment due date (draft only)
+          example: "2025-05-20"
+        currency:
+          type: string
+          description: Currency code (draft only)
+          example: "USD"
+        notes:
+          type: string
+          description: Invoice notes visible to the customer
+          example: "Updated payment instructions"
+        payment_terms:
+          type: string
+          description: Payment terms description
+          example: "Net 15"
+        status:
+          type: string
+          enum:
+            - draft
+            - sent
+            - viewed
+            - in_review
+            - partial
+            - paid
+            - overdue
+            - cancelled
+          description: Invoice status
+          example: "sent"
+        subtotal:
+          type: number
+          format: double
+          description: Subtotal before discount (draft only)
+          example: 5000.00
+        discount_type:
+          type: string
+          enum:
+            - percentage
+            - fixed
+          description: Discount type (draft only)
+          example: "percentage"
+        discount_value:
+          type: number
+          description: Discount value (draft only)
+          example: 10
+        discount_amount:
+          type: number
+          format: double
+          description: Calculated discount amount (draft only)
+          example: 500.00
+        subtotal_after_discount:
+          type: number
+          format: double
+          description: Subtotal minus discount (draft only)
+          example: 4500.00
+        tax_rate:
+          type: number
+          description: Tax rate as percentage (draft only)
+          example: 16
+        tax_id:
+          type: string
+          description: Tax identifier (draft only)
+          example: "VAT"
+        tax_amount:
+          type: number
+          format: double
+          description: Calculated tax amount (draft only)
+          example: 720.00
+        total:
+          type: number
+          format: double
+          description: Final total (draft only). Updates amount_due automatically.
+          example: 5220.00
+
+    QuoteSummary:
+      type: object
+      description: Quote object returned in list endpoints (without items)
+      required:
+        - id
+        - quote_number
+        - customer_id
+        - status
+        - issue_date
+        - valid_until
+        - total
+        - currency
+        - created_at
+      properties:
+        id:
+          type: string
+          description: Unique quote identifier
+          example: "quo_p1q2r3s4t5u6"
+        quote_number:
+          type: string
+          description: "Auto-generated quote number. Format: {PREFIX}-{YEAR}-{COUNTER:5}-{VERSION}"
+          example: "QUO-2025-00001-1"
+        customer_id:
+          type: string
+          description: Associated customer ID
+          example: "cus_a1b2c3d4e5f6"
+        status:
+          type: string
+          description: Quote status
+          enum:
+            - draft
+            - sent
+            - viewed
+            - approved
+            - rejected
+            - expired
+            - converted
+          example: "sent"
+        issue_date:
+          type: string
+          format: date
+          description: Date the quote was issued
+          example: "2025-04-01"
+        valid_until:
+          type: string
+          format: date
+          description: Quote expiration date
+          example: "2025-05-01"
+        subtotal:
+          type: number
+          format: double
+          description: Sum of all line items before discount
+          example: 12000.00
+        discount_type:
+          type:
+            - string
+            - "null"
+          enum:
+            - percentage
+            - fixed
+            - null
+          description: Type of discount applied
+          example: "fixed"
+        discount_value:
+          type:
+            - number
+            - "null"
+          description: Discount value (percentage or fixed amount)
+          example: 500
+        discount_amount:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Calculated discount amount
+          example: 500.00
+        subtotal_after_discount:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Subtotal minus discount
+          example: 11500.00
+        tax_rate:
+          type:
+            - number
+            - "null"
+          description: Tax rate as a percentage
+          example: 0
+        tax_amount:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Calculated tax amount
+          example: 0.00
+        total:
+          type: number
+          format: double
+          description: Final total (subtotal_after_discount + tax_amount)
+          example: 11500.00
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          example: "USD"
+        notes:
+          type:
+            - string
+            - "null"
+          description: Quote notes visible to the customer
+          example: "Valid for 30 days"
+        payment_terms:
+          type:
+            - string
+            - "null"
+          description: Payment terms description
+          example: "50% upfront, 50% on delivery"
+        created_at:
+          type: string
+          format: date-time
+          description: When the quote was created
+          example: "2025-04-01T08:00:00.000Z"
+        updated_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: When the quote was last updated
+          example: "2025-04-01T08:30:00.000Z"
+        customer:
+          $ref: "#/components/schemas/EmbeddedCustomer"
+
+    QuoteDetail:
+      description: Full quote object including items and public_token (returned by GET /quotes/{id} and POST /quotes)
+      allOf:
+        - $ref: "#/components/schemas/QuoteSummary"
+        - type: object
+          properties:
+            public_token:
+              type:
+                - string
+                - "null"
+              description: Token for public quote viewing URL
+              example: "1713182400000-p1q2r3s4t5u6"
+            items:
+              type: array
+              description: Quote line items
+              items:
+                $ref: "#/components/schemas/LineItem"
+
+    QuoteCreate:
+      type: object
+      required:
+        - customer_id
+      properties:
+        customer_id:
+          type: string
+          description: Customer ID to associate with this quote
+          example: "cus_a1b2c3d4e5f6"
+        issue_date:
+          type: string
+          format: date
+          description: Quote issue date (defaults to today)
+          example: "2025-04-15"
+        valid_until:
+          type: string
+          format: date
+          description: Quote expiration date (defaults to 30 days from issue_date)
+          example: "2025-05-15"
+        currency:
+          type: string
+          description: Currency code (ISO 4217). Defaults to company currency or `USD`
+          example: "USD"
+        notes:
+          type: string
+          description: Quote notes visible to the customer
+          example: "This quote is valid for 30 days"
+        payment_terms:
+          type: string
+          description: Payment terms description
+          example: "50% upfront, 50% on delivery"
+        tax_rate:
+          type: number
+          description: Tax rate as a percentage (e.g., 16 for 16%)
+          example: 0
+        tax_id:
+          type: string
+          description: Tax identifier or label
+          example: "VAT"
+        discount_type:
+          type: string
+          enum:
+            - percentage
+            - fixed
+          description: Type of discount to apply
+          example: "fixed"
+        discount_value:
+          type: number
+          description: Discount value (percentage or fixed amount)
+          example: 500
+        items:
+          type: array
+          description: Line items for the quote
+          items:
+            $ref: "#/components/schemas/LineItemInput"
+
+    QuoteUpdate:
+      type: object
+      description: All fields are optional. Any combination of fields can be updated.
+      properties:
+        customer_id:
+          type: string
+          description: Customer ID
+          example: "cus_a1b2c3d4e5f6"
+        issue_date:
+          type: string
+          format: date
+          description: Quote issue date
+          example: "2025-04-20"
+        valid_until:
+          type: string
+          format: date
+          description: Quote expiration date
+          example: "2025-05-20"
+        currency:
+          type: string
+          description: Currency code
+          example: "USD"
+        notes:
+          type: string
+          description: Quote notes visible to the customer
+          example: "Client approved via email"
+        payment_terms:
+          type: string
+          description: Payment terms description
+          example: "Net 30"
+        status:
+          type: string
+          enum:
+            - draft
+            - sent
+            - viewed
+            - approved
+            - rejected
+            - expired
+            - converted
+          description: Quote status
+          example: "approved"
+        subtotal:
+          type: number
+          format: double
+          description: Subtotal before discount
+          example: 12000.00
+        discount_type:
+          type: string
+          enum:
+            - percentage
+            - fixed
+          description: Discount type
+          example: "fixed"
+        discount_value:
+          type: number
+          description: Discount value
+          example: 500
+        discount_amount:
+          type: number
+          format: double
+          description: Calculated discount amount
+          example: 500.00
+        subtotal_after_discount:
+          type: number
+          format: double
+          description: Subtotal minus discount
+          example: 11500.00
+        tax_rate:
+          type: number
+          description: Tax rate as percentage
+          example: 0
+        tax_id:
+          type: string
+          description: Tax identifier
+          example: "VAT"
+        tax_amount:
+          type: number
+          format: double
+          description: Calculated tax amount
+          example: 0.00
+        total:
+          type: number
+          format: double
+          description: Final total
+          example: 11500.00
+
+    # ─── Project Schemas ─────────────────────────────
+
+    ProjectSummary:
+      type: object
+      description: Project object returned in list endpoints
+      properties:
+        id:
+          type: string
+          description: Project ID
+          example: "pro_a1b2c3d4e5f6"
+        public_id:
+          type: string
+          description: Human-readable project number
+          example: "PRO-2025-000001"
+        company_id:
+          type: string
+          example: "com_a1b2c3d4e5f6"
+        customer_id:
+          type: string
+          nullable: true
+          example: "cus_a1b2c3d4e5f6"
+        title:
+          type: string
+          example: "Website Redesign"
+        description:
+          type: string
+          nullable: true
+          example: "Complete redesign of the marketing website"
+        status:
+          type: string
+          enum: [draft, in_progress, on_hold, review, completed, cancelled]
+          example: "in_progress"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          example: "high"
+        start_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-03-01"
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-05-01"
+        billing_type:
+          type: string
+          enum: [time_based, fixed_price, mixed]
+          example: "time_based"
+        budget_hours:
+          type: number
+          nullable: true
+          example: 200
+        budget_amount:
+          type: number
+          format: double
+          nullable: true
+          example: 15000.00
+        hourly_rate:
+          type: number
+          format: double
+          nullable: true
+          example: 75.00
+        progress_percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 45
+        is_archived:
+          type: boolean
+          example: false
+        customer_name:
+          type: string
+          nullable: true
+          example: "Acme Corp"
+        total_hours:
+          type: number
+          format: double
+          nullable: true
+          example: 90.5
+        total_revenue:
+          type: number
+          format: double
+          nullable: true
+          example: 6787.50
+        total_cost:
+          type: number
+          format: double
+          nullable: true
+          example: 3393.75
+        profit:
+          type: number
+          format: double
+          nullable: true
+          example: 3393.75
+        tasks_count:
+          type: integer
+          nullable: true
+          example: 12
+        completed_tasks:
+          type: integer
+          nullable: true
+          example: 5
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-03-01T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-04-15T14:30:00Z"
+
+    ProjectDetail:
+      allOf:
+        - $ref: "#/components/schemas/ProjectSummary"
+        - type: object
+          properties:
+            assigned_to:
+              type: array
+              items:
+                type: string
+              description: Array of assigned user IDs
+              example: ["usr_abc123", "usr_def456"]
+            created_by:
+              type: string
+              example: "usr_abc123"
+            completed_at:
+              type: string
+              format: date-time
+              nullable: true
+            metadata:
+              type: object
+              description: Custom metadata
+            public_token:
+              type: string
+              description: Token for public access to this project
+
+    ProjectCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Project title
+          example: "Website Redesign"
+        description:
+          type: string
+          description: Project description
+          example: "Complete redesign of the marketing website"
+        customer_id:
+          type: string
+          description: Customer ID to associate with this project
+          example: "cus_a1b2c3d4e5f6"
+        assigned_to:
+          type: array
+          items:
+            type: string
+          description: Array of user IDs to assign
+          example: ["usr_abc123"]
+        status:
+          type: string
+          enum: [draft, in_progress, on_hold, review, completed, cancelled]
+          description: "Project status (defaults to `draft`)"
+          example: "draft"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          description: "Project priority (defaults to `medium`)"
+          example: "high"
+        start_date:
+          type: string
+          format: date
+          example: "2025-03-01"
+        due_date:
+          type: string
+          format: date
+          example: "2025-05-01"
+        billing_type:
+          type: string
+          enum: [time_based, fixed_price, mixed]
+          description: "Billing type (defaults to `time_based`)"
+          example: "time_based"
+        budget_hours:
+          type: number
+          description: Budget in hours
+          example: 200
+        budget_amount:
+          type: number
+          format: double
+          description: Budget in currency
+          example: 15000.00
+        hourly_rate:
+          type: number
+          format: double
+          description: Default hourly rate for this project
+          example: 75.00
+        metadata:
+          type: object
+          description: Custom metadata
+
+    ProjectUpdate:
+      type: object
+      description: All fields are optional. Any combination can be updated.
+      properties:
+        title:
+          type: string
+          example: "Website Redesign v2"
+        description:
+          type: string
+        customer_id:
+          type: string
+        assigned_to:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [draft, in_progress, on_hold, review, completed, cancelled]
+          example: "completed"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        start_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        billing_type:
+          type: string
+          enum: [time_based, fixed_price, mixed]
+        budget_hours:
+          type: number
+        budget_amount:
+          type: number
+          format: double
+        hourly_rate:
+          type: number
+          format: double
+        progress_percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+        is_archived:
+          type: boolean
+        metadata:
+          type: object
+
+    # ─── Task Schemas ────────────────────────────────
+
+    Task:
+      type: object
+      description: Task object
+      properties:
+        id:
+          type: string
+          example: "tsk_a1b2c3d4e5f6"
+        public_id:
+          type: string
+          example: "TSK-2025-000001"
+        project_id:
+          type: string
+          example: "pro_a1b2c3d4e5f6"
+        parent_task_id:
+          type: string
+          nullable: true
+          description: Parent task ID for subtasks
+        depends_on:
+          type: array
+          items:
+            type: string
+          description: Array of task IDs this task depends on
+        assigned_to:
+          type: string
+          nullable: true
+          description: Assigned user ID
+        created_by:
+          type: string
+        title:
+          type: string
+          example: "Design homepage mockup"
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [backlog, todo, in_progress, in_review, completed, cancelled]
+          example: "in_progress"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          example: "high"
+        estimated_hours:
+          type: number
+          nullable: true
+          example: 8
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_billable:
+          type: boolean
+          example: true
+        hourly_rate:
+          type: number
+          format: double
+          nullable: true
+          example: 75.00
+        position:
+          type: integer
+          description: Sort order within the project
+          example: 0
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["design", "frontend"]
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TaskCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Task title
+          example: "Design homepage mockup"
+        description:
+          type: string
+          example: "Create initial mockups for the homepage"
+        assigned_to:
+          type: string
+          nullable: true
+          description: User ID to assign the task to
+        parent_task_id:
+          type: string
+          description: Parent task ID to create a subtask
+        depends_on:
+          type: array
+          items:
+            type: string
+          description: Task IDs this task depends on
+        status:
+          type: string
+          enum: [backlog, todo, in_progress, in_review, completed, cancelled]
+          description: "Task status (defaults to `backlog`)"
+          example: "todo"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          description: "Task priority (defaults to `medium`)"
+          example: "high"
+        estimated_hours:
+          type: number
+          example: 8
+        start_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        is_billable:
+          type: boolean
+          description: Whether this task is billable (defaults to true)
+          example: true
+        hourly_rate:
+          type: number
+          format: double
+          description: Override hourly rate for this task
+          example: 75.00
+        position:
+          type: integer
+          description: Sort order
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["design"]
+        metadata:
+          type: object
+
+    TaskUpdate:
+      type: object
+      description: All fields are optional.
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        assigned_to:
+          type: string
+          nullable: true
+        parent_task_id:
+          type: string
+        depends_on:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [backlog, todo, in_progress, in_review, completed, cancelled]
+          example: "completed"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        estimated_hours:
+          type: number
+        start_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+        is_billable:
+          type: boolean
+        hourly_rate:
+          type: number
+          format: double
+        position:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+
+    # ─── Time Entry Schemas ──────────────────────────
+
+    TimeEntry:
+      type: object
+      description: Time entry object
+      properties:
+        id:
+          type: string
+          example: "tme_a1b2c3d4e5f6"
+        project_id:
+          type: string
+          example: "pro_a1b2c3d4e5f6"
+        task_id:
+          type: string
+          nullable: true
+          example: "tsk_a1b2c3d4e5f6"
+        user_id:
+          type: string
+          example: "usr_abc123"
+        company_id:
+          type: string
+          example: "com_a1b2c3d4e5f6"
+        start_time:
+          type: string
+          format: date-time
+          example: "2025-04-10T09:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-04-10T17:00:00Z"
+        duration_minutes:
+          type: integer
+          description: Duration in minutes
+          example: 480
+        is_running:
+          type: boolean
+          description: Whether this timer is currently running
+          example: false
+        description:
+          type: string
+          nullable: true
+          example: "Implemented responsive navigation"
+        is_billable:
+          type: boolean
+          example: true
+        hourly_rate:
+          type: number
+          format: double
+          nullable: true
+          example: 75.00
+        internal_cost_rate:
+          type: number
+          format: double
+          nullable: true
+          description: Internal cost rate for profit calculation
+        invoiced:
+          type: boolean
+          description: Whether this entry has been invoiced
+          example: false
+        invoice_id:
+          type: string
+          nullable: true
+          description: Associated invoice ID if invoiced
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TimeEntryCreate:
+      type: object
+      required:
+        - entry_date
+        - duration_minutes
+        - hourly_rate
+      properties:
+        entry_date:
+          type: string
+          format: date
+          description: Date of the time entry
+          example: "2025-04-10"
+        duration_minutes:
+          type: integer
+          description: Duration in minutes (must be > 0)
+          minimum: 1
+          example: 480
+        hourly_rate:
+          type: number
+          format: double
+          description: Hourly rate (must be >= 0)
+          minimum: 0
+          example: 75.00
+        task_id:
+          type: string
+          description: Associate with a specific task
+          example: "tsk_a1b2c3d4e5f6"
+        description:
+          type: string
+          description: Description of work performed
+          example: "Implemented responsive navigation"
+        is_billable:
+          type: boolean
+          description: Whether this entry is billable (defaults to true)
+          example: true
+        internal_cost_rate:
+          type: number
+          format: double
+          description: Internal cost rate for profit tracking
+          example: 37.50
+        metadata:
+          type: object
+
+    TimeEntryUpdate:
+      type: object
+      description: All fields are optional. Cannot update invoiced entries.
+      properties:
+        entry_date:
+          type: string
+          format: date
+        duration_minutes:
+          type: integer
+          minimum: 1
+          description: Duration in minutes (must be > 0)
+        hourly_rate:
+          type: number
+          format: double
+          minimum: 0
+        task_id:
+          type: string
+        description:
+          type: string
+        is_billable:
+          type: boolean
+        internal_cost_rate:
+          type: number
+          format: double
+        metadata:
+          type: object
+
+    TimeSummary:
+      type: object
+      description: Aggregated time tracking summary for a project
+      properties:
+        totalHours:
+          type: number
+          format: double
+          description: Total hours tracked
+          example: 120.5
+        totalRevenue:
+          type: number
+          format: double
+          description: Total billable revenue
+          example: 9037.50
+        totalCost:
+          type: number
+          format: double
+          description: Total internal cost
+          example: 4518.75
+        profit:
+          type: number
+          format: double
+          description: Revenue minus cost
+          example: 4518.75
+        billableHours:
+          type: number
+          format: double
+          description: Hours marked as billable
+          example: 100.0
+        nonBillableHours:
+          type: number
+          format: double
+          description: Hours marked as non-billable
+          example: 20.5
+        invoicedHours:
+          type: number
+          format: double
+          description: Hours already invoiced
+          example: 60.0
+        uninvoicedHours:
+          type: number
+          format: double
+          description: Billable hours not yet invoiced
+          example: 60.5
+
+    Pagination:
+      type: object
+      description: Pagination metadata
+      required:
+        - total
+        - limit
+        - offset
+      properties:
+        total:
+          type: integer
+          description: Total number of records matching the query
+          example: 42
+        limit:
+          type: integer
+          description: Maximum records per page
+          example: 50
+        offset:
+          type: integer
+          description: Number of records skipped
+          example: 0
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "An error occurred"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid or missing parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "company_id is required"
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Invalid or missing API key"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Insufficient permissions. Write access required."
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "Resource not found"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "An internal error occurred"
+
+    Deleted:
+      description: Resource deleted successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - data
+            properties:
+              data:
+                type: object
+                required:
+                  - deleted
+                properties:
+                  deleted:
+                    type: boolean
+                    const: true
+          example:
+            data:
+              deleted: true

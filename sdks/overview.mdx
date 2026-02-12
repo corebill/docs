@@ -1,0 +1,44 @@
+---
+title: "SDKs Overview"
+description: "Official SDKs and libraries for the Corebill API."
+---
+
+## Official SDKs
+
+<Info>
+  SDKs are currently in development. The Node.js SDK will be the first to launch.
+</Info>
+
+<Columns cols={2}>
+  <Card title="Node.js" icon="node-js" href="/sdks/node">
+    TypeScript/JavaScript SDK for Node.js and modern runtimes.
+  </Card>
+  <Card title="Python" icon="python">
+    Coming soon.
+  </Card>
+</Columns>
+
+## Direct API Access
+
+While SDKs are in development, you can interact with the API directly using any HTTP client:
+
+```bash
+curl "https://api.corebill.io/v1/companies" \
+  -H "Authorization: Bearer sk_live_your_api_key"
+```
+
+## OpenAPI Specification
+
+Our complete API is documented using OpenAPI 3.1.0. You can use the spec to generate clients in any language:
+
+- [Download OpenAPI Spec](https://api.corebill.io/v1/openapi.yaml)
+
+### Generate a Client
+
+```bash
+# Using openapi-generator
+npx @openapitools/openapi-generator-cli generate \
+  -i openapi.yaml \
+  -g typescript-fetch \
+  -o ./corebill-client
+```
