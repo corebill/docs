@@ -1,0 +1,246 @@
+---
+title: "MCP Server"
+description: "Connect Corebill to any MCP-compatible AI client like Claude Desktop, Cursor, Windsurf, or VS Code."
+---
+
+## Overview
+
+The Corebill MCP (Model Context Protocol) server lets you manage your billing platform directly from any MCP-compatible AI client. Create customers, invoices, quotes, and more using natural language through your favorite AI assistant.
+
+**Available on npm:** [`corebill-mcp`](https://www.npmjs.com/package/corebill-mcp)
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org) 18 or higher
+- A Corebill account with an API key
+- An MCP-compatible client (Claude Desktop, Cursor, Windsurf, VS Code, etc.)
+
+## Getting Your Credentials
+
+1. Log in to [Corebill](https://app.corebill.io)
+2. Go to **Developers** > **API Keys**
+3. Create a new API key with **write** permission (or **admin** if you need delete operations)
+4. Copy the API key (`sk_...`) and your Company ID (`com_...`)
+
+<Warning>Store your API key securely. It provides access to your billing data.</Warning>
+
+## Setup
+
+### Claude Desktop
+
+Open the configuration file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the Corebill MCP server:
+
+```json
+{
+  "mcpServers": {
+    "corebill": {
+      "command": "npx",
+      "args": ["-y", "corebill-mcp"],
+      "env": {
+        "COREBILL_API_KEY": "sk_your_api_key_here",
+        "COREBILL_COMPANY_ID": "com_your_company_id"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop to load the new configuration.
+
+### Cursor
+
+Create a file at `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "corebill": {
+      "command": "npx",
+      "args": ["-y", "corebill-mcp"],
+      "env": {
+        "COREBILL_API_KEY": "sk_your_api_key_here",
+        "COREBILL_COMPANY_ID": "com_your_company_id"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Open the configuration file at `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "corebill": {
+      "command": "npx",
+      "args": ["-y", "corebill-mcp"],
+      "env": {
+        "COREBILL_API_KEY": "sk_your_api_key_here",
+        "COREBILL_COMPANY_ID": "com_your_company_id"
+      }
+    }
+  }
+}
+```
+
+### VS Code (Copilot)
+
+Create a file at `.vscode/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "corebill": {
+      "command": "npx",
+      "args": ["-y", "corebill-mcp"],
+      "env": {
+        "COREBILL_API_KEY": "sk_your_api_key_here",
+        "COREBILL_COMPANY_ID": "com_your_company_id"
+      }
+    }
+  }
+}
+```
+
+### Claude Code (CLI)
+
+Add to your `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "corebill": {
+      "command": "npx",
+      "args": ["-y", "corebill-mcp"],
+      "env": {
+        "COREBILL_API_KEY": "sk_your_api_key_here",
+        "COREBILL_COMPANY_ID": "com_your_company_id"
+      }
+    }
+  }
+}
+```
+
+## Available Tools
+
+The MCP server exposes **31 tools** across 7 resource types:
+
+### Customers
+| Tool | Description |
+|------|-------------|
+| `list_customers` | List customers with search and pagination |
+| `get_customer` | Get customer details by ID |
+| `create_customer` | Create a new customer (requires name and country) |
+| `update_customer` | Update customer fields |
+| `delete_customer` | Delete a customer (admin permission required) |
+
+### Invoices
+| Tool | Description |
+|------|-------------|
+| `list_invoices` | List invoices with status and customer filters |
+| `get_invoice` | Get invoice with line items |
+| `create_invoice` | Create invoice with items, auto-calculates totals |
+| `update_invoice` | Update invoice fields and status |
+| `delete_invoice` | Soft delete an invoice (admin permission required) |
+
+### Quotes
+| Tool | Description |
+|------|-------------|
+| `list_quotes` | List quotes with status and customer filters |
+| `get_quote` | Get quote with line items |
+| `create_quote` | Create quote with items, auto-calculates totals |
+| `update_quote` | Update quote fields and status |
+| `delete_quote` | Soft delete a quote (admin permission required) |
+
+### Items (Catalog)
+| Tool | Description |
+|------|-------------|
+| `list_items` | List items/services in the catalog |
+| `get_item` | Get item details |
+| `create_item` | Add a new item to the catalog |
+| `update_item` | Update item details and pricing |
+| `delete_item` | Remove item from catalog (admin permission required) |
+
+### Projects
+| Tool | Description |
+|------|-------------|
+| `list_projects` | List projects with filters |
+| `get_project` | Get project details |
+| `create_project` | Create a new project |
+| `update_project` | Update project fields |
+| `delete_project` | Delete a project (admin permission required) |
+
+### Tasks
+| Tool | Description |
+|------|-------------|
+| `list_tasks` | List tasks within a project |
+| `get_task` | Get task details |
+| `create_task` | Create a task (supports subtasks) |
+| `update_task` | Update task status, priority, assignee |
+| `delete_task` | Delete a task (admin permission required) |
+
+### Companies
+| Tool | Description |
+|------|-------------|
+| `list_companies` | List companies in your organization |
+
+## Usage Examples
+
+Once configured, you can interact with Corebill using natural language:
+
+- "List all my customers"
+- "Create a quote for Acme Corp with 2 units of the Business plan"
+- "Show me all unpaid invoices"
+- "Create a new customer called Globex Corp in the US"
+- "What items do I have in my catalog?"
+- "Update the status of invoice INV-2026-00001 to sent"
+
+The AI client will automatically use the appropriate Corebill tools to fulfill your requests.
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `COREBILL_API_KEY` | Yes | Your API key from the Developers section |
+| `COREBILL_COMPANY_ID` | Yes | Company ID to operate on (format: `com_...`) |
+| `COREBILL_API_URL` | No | Custom API URL (default: `https://app.corebill.io`) |
+
+## API Key Permissions
+
+The MCP server requires different permission levels depending on the operations:
+
+| Permission | Operations |
+|------------|------------|
+| **read** | List and get resources |
+| **write** | Create and update resources |
+| **admin** | Delete resources |
+
+Permissions are hierarchical: `admin` includes `write`, which includes `read`.
+
+## MCP vs AI Agent
+
+Corebill offers two AI-powered interfaces. Choose the one that fits your workflow:
+
+| Feature | AI Agent (Built-in) | MCP Server |
+|---------|-------------------|------------|
+| **Access** | Corebill dashboard | Any MCP client (Claude, Cursor, etc.) |
+| **Authentication** | Automatic (logged in) | API key required |
+| **Customers** | Full CRUD + search | Full CRUD + search |
+| **Invoices** | Full CRUD | Full CRUD |
+| **Quotes** | Full CRUD | Full CRUD |
+| **Items catalog** | Search, list, create | Full CRUD |
+| **Projects & Tasks** | - | Full CRUD |
+| **Send emails** | Yes | Not yet |
+| **Record payments** | Yes | Not yet |
+| **Convert quote to invoice** | Yes | Not yet |
+| **Analytics & reports** | Yes (4 tools) | Not yet |
+| **Streaming responses** | Yes (SSE) | N/A |
+| **Conversation history** | Yes (saved) | Managed by client |
+
+The **AI Agent** is best for non-technical users who want a chat interface inside Corebill. The **MCP Server** is best for developers who want to manage billing from their IDE or AI assistant.

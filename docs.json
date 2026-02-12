@@ -37,6 +37,12 @@
             ]
           },
           {
+            "group": "Integrations",
+            "pages": [
+              "guides/mcp"
+            ]
+          },
+          {
             "group": "Advanced",
             "pages": [
               "guides/pagination",
